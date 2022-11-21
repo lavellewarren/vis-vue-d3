@@ -51,6 +51,11 @@ export default {
     this.drawChart();
   },
   computed: {
+    selectedYear: {
+      get() {
+        return this.$store.getters.selectedYear;
+      },
+    },
     ratesAndIncomes: {
       get() {
         return this.$store.getters.ratesAndIncomes;
@@ -104,16 +109,24 @@ export default {
     },
   },
   watch: {
-    ratesAndIncomes: {
-      handler(newValue) {
-        this.filteredRatesAndIncomes = newValue;
+    selectedYear: {
+      handler() {
         this.drawChart();
       },
       deep: true,
     },
+    ratesAndIncomes: {
+      handler(newValue, oldValue) {
+        this.filteredRatesAndIncomes = newValue;
+        if (oldValue.length === 0) this.drawChart();
+        else this.updateChart();
+      },
+      deep: true,
+    },
     usStatesGeo: {
-      handler() {
-        this.drawChart();
+      handler(_newValue, oldValue) {
+        if (!oldValue.features) this.drawChart();
+        else this.updateChart();
       },
       deep: true,
     },
@@ -177,7 +190,7 @@ export default {
           selected: false,
         };
       });
-      this.drawChart();
+      this.updateChart();
     },
     onSelectState(state) {
       this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function (d) {
@@ -188,7 +201,7 @@ export default {
           selected: !filtered
         };
       });
-      this.drawChart();
+      this.updateChart();
     },
     onDeselectState() {
       this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function (d) {
@@ -198,7 +211,7 @@ export default {
           selected: false
         };
       });
-      this.drawChart();
+      this.updateChart();
     },
     drawChart() {
       if (this.$refs.scatterplotChart)
@@ -213,12 +226,17 @@ export default {
         `translate(${this.scatterPadding.left},${this.scatterPadding.top})`
       );
 
-      this.drawScatterRects();
       this.drawScatterXAxis();
       this.drawScatterYAxis();
-      this.drawScatterPlots();
+      this.drawScatterRects();
       this.drawScatterBrush();
-
+      this.drawScatterPlots();
+      this.drawUsmap();
+    },
+    updateChart() {
+      this.drawScatterRects();
+      this.drawScatterBrush();
+      this.drawScatterPlots();
       this.drawUsmap();
     },
     drawScatterXAxis() {
@@ -284,14 +302,13 @@ export default {
         ])
         .range(["#fbb4b9", "#f768a1", "#c51b8a", "#7a0177"]);
 
-      const circles = d3
-        .select(this.$refs.circleGroup)
+      const circles = d3.select(this.$refs.circleGroup);
+
+      circles
         .selectAll("circle")
         .data(this.filteredRatesAndIncomes)
         .join("circle")
-        .attr("r", function (d) {
-          return d.selected ? 8 : 4
-        })
+        .attr("r", 4)
         .style("stroke", "#fff")
         .attr("cx", function (d) {
           return vm.xScale(d.rate);
@@ -302,21 +319,31 @@ export default {
         .style("fill", function (d) {
           return vm.bivariateColor(xColor(d.rate), yColor(d.income));
         })
-        .style("opacity", function (d) {
-          return d.filtered ? 0.5 : 1;
-        })
-        .style("stroke-width", function (d) {
-          return d.filtered ? 1 : 2;
-        });
+        .style("opacity", 1)
+        .style("stroke-width", 2)
+
       circles
+        .selectAll("circle")
         .append('title')
         .text(d => d.state);
       circles
+        .selectAll("circle")
         .on('mouseover', function () {
           d3.select(this).attr("r", 8);
         })
         .on('mouseout', function () {
           d3.select(this).attr("r", 4);
+        });
+      circles
+        .selectAll("circle")
+        .style("opacity", function (d) {
+          return d.filtered ? 0.5 : 1;
+        })
+        .style("stroke-width", function (d) {
+          return d.filtered ? 1 : 2;
+        })
+        .attr("r", function (d) {
+          return d.selected ? 8 : 4
         });
     },
     drawScatterRects() {
@@ -444,9 +471,15 @@ export default {
         .attr("d", path)
         .style("stroke", "#fff")
         .style("stroke-width", 1)
+        .style("fill", "#ddd")
         .append('title')
         .text(d => d.properties.name);
 
+      usmap.selectAll("path")
+        .on('click', function (ev) {
+          vm.isClickedOnState = true;
+          vm.onSelectState(ev.target.__data__.properties.name);
+        });
       usmap.selectAll("path").style("fill", function (d) {
         const row = vm.filteredRatesAndIncomes.find(
           (row) => row.state === d.properties.name
@@ -456,12 +489,6 @@ export default {
           ? "#ddd"
           : vm.bivariateColor(xColor(row.rate), yColor(row.income));
       });
-
-      usmap.selectAll("path")
-        .on('click', function (ev) {
-          vm.isClickedOnState = true;
-          vm.onSelectState(ev.target.__data__.properties.name);
-        })
     },
   },
 };
