@@ -1,8 +1,7 @@
 <template>
   <div class="row">
-    <div class="col-md-5">
+    <div class="col-md-6">
       <div class="vis-component" ref="scatterplotChart">
-        <div class="placeholder"><b>Here comes the scatterplot</b>.</div>
         <svg id="scatter-svg" :width="scatterWidth" :height="scatterHeight" ref="scatterSvg">
           <g class="chart-group" ref="chartGroup">
             <g class="rect-group" ref="rectGroup"></g>
@@ -14,9 +13,8 @@
         </svg>
       </div>
     </div>
-    <div class="col-md-7">
+    <div class="col-md-6">
       <div class="vis-component" ref="choroplethChart">
-        <div class="placeholder"><b>Here comes the choropleth map</b>.</div>
         <svg id="chropleth-svg" :width="chroplethWidth" :height="chroplethHeight" ref="chroplethSvg">
           <g class="usmap" ref="usmap"></g>
         </svg>
@@ -34,9 +32,9 @@ export default {
   data() {
     return {
       scatterWidth: 0,
-      scatterHeight: 350,
+      scatterHeight: 400,
       chroplethWidth: 0,
-      chroplethHeight: 350,
+      chroplethHeight: 400,
       scatterPadding: {
         top: 10,
         right: 15,
@@ -240,7 +238,8 @@ export default {
       this.drawUsmap();
     },
     drawScatterXAxis() {
-      d3.select(this.$refs.axisX)
+      const axisX = d3.select(this.$refs.axisX);
+      axisX
         .attr(
           "transform",
           `translate( 0, ${this.scatterHeight -
@@ -251,7 +250,13 @@ export default {
           d3.axisBottom(d3.scaleLinear().range(this.xScaleRange))
           // .tickFormat(d3.format("$.2s"))
         )
+
+      axisX
+        .selectAll('text.axisXTitle')
+        .data(["Burglary Rate (per 100.000 people)"])
+        .enter()
         .append("text")
+        .attr('class', 'axisXTitle')
         .attr(
           "x",
           this.scatterWidth -
@@ -262,22 +267,28 @@ export default {
         .style("text-anchor", "end")
         .style("fill", "#000")
         .style("font-weight", "bold")
-        .text("Burglary Rate (per 100.000 people)");
+        .text(d => d);
     },
     drawScatterYAxis() {
-      d3.select(this.$refs.axisY)
+      const axisY = d3.select(this.$refs.axisY);
+      axisY
         .call(
           d3.axisLeft(d3.scaleLinear().range(this.yScaleRange))
           // .tickFormat(d3.format(".0%"))
         )
+      axisY
+        .selectAll('text.axisYTitle')
+        .data(["Per Capita Disposable Personal Income (in $)"])
+        .enter()
         .append("text")
         .attr("transform", "rotate(-90)")
+        .attr('class', 'axisYTitle')
         .attr("x", 0)
         .attr("y", -40)
         .style("text-anchor", "end")
         .style("fill", "#000")
         .style("font-weight", "bold")
-        .text("Per Capita Disposable Personal Income (in $)");
+        .text(d => d);
     },
     drawScatterPlots() {
       if (this.filteredRatesAndIncomes.length === 0) return;
