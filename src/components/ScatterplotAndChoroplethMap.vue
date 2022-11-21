@@ -3,18 +3,13 @@
     <div class="col-md-5">
       <div class="vis-component" ref="scatterplotChart">
         <div class="placeholder"><b>Here comes the scatterplot</b>.</div>
-        <svg
-          id="scatter-svg"
-          :width="scatterWidth"
-          :height="scatterHeight"
-          ref="scatterSvg"
-        >
+        <svg id="scatter-svg" :width="scatterWidth" :height="scatterHeight" ref="scatterSvg">
           <g class="chart-group" ref="chartGroup">
             <g class="rect-group" ref="rectGroup"></g>
+            <g class="brush" ref="brush"></g>
             <g class="axis axis-x" ref="axisX"></g>
             <g class="axis axis-y" ref="axisY"></g>
             <g class="circle-group" ref="circleGroup"></g>
-            <g class="brush" ref="brush"></g>
           </g>
         </svg>
       </div>
@@ -22,12 +17,7 @@
     <div class="col-md-7">
       <div class="vis-component" ref="choroplethChart">
         <div class="placeholder"><b>Here comes the choropleth map</b>.</div>
-        <svg
-          id="chropleth-svg"
-          :width="chroplethWidth"
-          :height="chroplethHeight"
-          ref="chroplethSvg"
-        >
+        <svg id="chropleth-svg" :width="chroplethWidth" :height="chroplethHeight" ref="chroplethSvg">
           <g class="usmap" ref="usmap"></g>
         </svg>
       </div>
@@ -54,6 +44,7 @@ export default {
         left: 75,
       },
       filteredRatesAndIncomes: [],
+      isClickedOnState: false,
     };
   },
   mounted() {
@@ -74,25 +65,25 @@ export default {
       return [
         0,
         this.scatterWidth -
-          this.scatterPadding.left -
-          this.scatterPadding.right,
+        this.scatterPadding.left -
+        this.scatterPadding.right,
       ];
     },
     yScaleRange() {
       return [
         this.scatterHeight -
-          this.scatterPadding.top -
-          this.scatterPadding.bottom,
+        this.scatterPadding.top -
+        this.scatterPadding.bottom,
         0,
       ];
     },
     rateRange() {
-      return d3.extent(this.filteredRatesAndIncomes, function(d) {
+      return d3.extent(this.filteredRatesAndIncomes, function (d) {
         return d.rate;
       });
     },
     incomeRange() {
-      return d3.extent(this.filteredRatesAndIncomes, function(d) {
+      return d3.extent(this.filteredRatesAndIncomes, function (d) {
         return d.income;
       });
     },
@@ -176,22 +167,46 @@ export default {
     },
     onBrush(x0, x1, y0, y1) {
       var clear = x0 === x1 || y0 === y1;
-      this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function(d) {
+      this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function (d) {
         const filtered = clear
           ? false
           : d.rate < x0 || d.rate > x1 || d.income < y0 || d.income > y1;
         return {
           ...d,
           filtered,
+          selected: false,
         };
       });
-      this.drawUsmap();
+      this.drawChart();
+    },
+    onSelectState(state) {
+      this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function (d) {
+        const filtered = !(d.state === state)
+        return {
+          ...d,
+          filtered,
+          selected: !filtered
+        };
+      });
+      this.drawChart();
+    },
+    onDeselectState() {
+      this.filteredRatesAndIncomes = this.ratesAndIncomes.map(function (d) {
+        return {
+          ...d,
+          filtered: false,
+          selected: false
+        };
+      });
+      this.drawChart();
     },
     drawChart() {
       if (this.$refs.scatterplotChart)
         this.scatterWidth = this.$refs.scatterplotChart.clientWidth;
-      if (this.$refs.choroplethChart)
+      if (this.$refs.choroplethChart) {
         this.chroplethWidth = this.$refs.choroplethChart.clientWidth;
+        this.chroplethHeight = this.$refs.choroplethChart.clientWidth * 0.7;
+      }
 
       d3.select(this.$refs.chartGroup).attr(
         "transform",
@@ -211,8 +226,8 @@ export default {
         .attr(
           "transform",
           `translate( 0, ${this.scatterHeight -
-            this.scatterPadding.top -
-            this.scatterPadding.bottom} )`
+          this.scatterPadding.top -
+          this.scatterPadding.bottom} )`
         )
         .call(
           d3.axisBottom(d3.scaleLinear().range(this.xScaleRange))
@@ -222,8 +237,8 @@ export default {
         .attr(
           "x",
           this.scatterWidth -
-            this.scatterPadding.left -
-            this.scatterPadding.right
+          this.scatterPadding.left -
+          this.scatterPadding.right
         )
         .attr("y", 35)
         .style("text-anchor", "end")
@@ -269,33 +284,39 @@ export default {
         ])
         .range(["#fbb4b9", "#f768a1", "#c51b8a", "#7a0177"]);
 
-      const circle = d3
+      const circles = d3
         .select(this.$refs.circleGroup)
         .selectAll("circle")
-        .data(this.filteredRatesAndIncomes, function(d) {
-          return d.state;
-        });
-      circle.exit().remove();
-      circle
-        .enter()
-        .append("circle")
-        .attr("r", 4)
+        .data(this.filteredRatesAndIncomes)
+        .join("circle")
+        .attr("r", function (d) {
+          return d.selected ? 8 : 4
+        })
         .style("stroke", "#fff")
-        .merge(circle)
-        .attr("cx", function(d) {
+        .attr("cx", function (d) {
           return vm.xScale(d.rate);
         })
-        .attr("cy", function(d) {
+        .attr("cy", function (d) {
           return vm.yScale(d.income);
         })
-        .style("fill", function(d) {
+        .style("fill", function (d) {
           return vm.bivariateColor(xColor(d.rate), yColor(d.income));
         })
-        .style("opacity", function(d) {
+        .style("opacity", function (d) {
           return d.filtered ? 0.5 : 1;
         })
-        .style("stroke-width", function(d) {
+        .style("stroke-width", function (d) {
           return d.filtered ? 1 : 2;
+        });
+      circles
+        .append('title')
+        .text(d => d.state);
+      circles
+        .on('mouseover', function () {
+          d3.select(this).attr("r", 8);
+        })
+        .on('mouseout', function () {
+          d3.select(this).attr("r", 4);
         });
     },
     drawScatterRects() {
@@ -358,7 +379,7 @@ export default {
           [0, 0],
           [this.scatterWidth, this.scatterHeight],
         ])
-        .on("start brush", function(ev) {
+        .on("start brush", function (ev) {
           const selection = ev.selection;
 
           const x0 = vm.xScaleInvert(selection[0][0]);
@@ -406,6 +427,13 @@ export default {
 
       const path = d3.geoPath().projection(projection);
 
+      const chroplethSvg = d3.select(this.$refs.chroplethSvg);
+      chroplethSvg
+        .on('click', function () {
+          if (vm.isClickedOnState === false) vm.onDeselectState();
+          vm.isClickedOnState = false;
+        })
+
       const usmap = d3.select(this.$refs.usmap);
 
       usmap
@@ -415,9 +443,11 @@ export default {
         .append("path")
         .attr("d", path)
         .style("stroke", "#fff")
-        .style("stroke-width", 1);
+        .style("stroke-width", 1)
+        .append('title')
+        .text(d => d.properties.name);
 
-      usmap.selectAll("path").style("fill", function(d) {
+      usmap.selectAll("path").style("fill", function (d) {
         const row = vm.filteredRatesAndIncomes.find(
           (row) => row.state === d.properties.name
         );
@@ -426,9 +456,17 @@ export default {
           ? "#ddd"
           : vm.bivariateColor(xColor(row.rate), yColor(row.income));
       });
+
+      usmap.selectAll("path")
+        .on('click', function (ev) {
+          vm.isClickedOnState = true;
+          vm.onSelectState(ev.target.__data__.properties.name);
+        })
     },
   },
 };
 </script>
 
-<style></style>
+<style>
+
+</style>
