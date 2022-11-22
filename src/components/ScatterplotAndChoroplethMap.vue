@@ -37,7 +37,7 @@ export default {
       chroplethHeight: 400,
       scatterPadding: {
         top: 10,
-        right: 15,
+        right: 25,
         bottom: 40,
         left: 75,
       },
@@ -81,11 +81,13 @@ export default {
       ];
     },
     rateRange() {
+      if (this.filteredRatesAndIncomes.length === 0) return [0, 1];
       return d3.extent(this.filteredRatesAndIncomes, function (d) {
         return d.rate;
       });
     },
     incomeRange() {
+      if (this.filteredRatesAndIncomes.length === 0) return [0, 1];
       return d3.extent(this.filteredRatesAndIncomes, function (d) {
         return d.income;
       });
@@ -216,7 +218,7 @@ export default {
         this.scatterWidth = this.$refs.scatterplotChart.clientWidth;
       if (this.$refs.choroplethChart) {
         this.chroplethWidth = this.$refs.choroplethChart.clientWidth;
-        this.chroplethHeight = this.$refs.choroplethChart.clientWidth * 0.7;
+        this.chroplethHeight = this.$refs.choroplethChart.clientWidth * 0.6;
       }
 
       d3.select(this.$refs.chartGroup).attr(
@@ -238,6 +240,8 @@ export default {
       this.drawUsmap();
     },
     drawScatterXAxis() {
+      const x = d3.scaleLinear().range(this.xScaleRange);
+      x.domain(this.rateRange).nice();
       const axisX = d3.select(this.$refs.axisX);
       axisX
         .attr(
@@ -247,8 +251,8 @@ export default {
           this.scatterPadding.bottom} )`
         )
         .call(
-          d3.axisBottom(d3.scaleLinear().range(this.xScaleRange))
-          // .tickFormat(d3.format("$.2s"))
+          d3.axisBottom().scale(x)
+            .tickFormat(d3.format(".2s"))
         )
 
       axisX
@@ -270,11 +274,13 @@ export default {
         .text(d => d);
     },
     drawScatterYAxis() {
+      const y = d3.scaleLinear().range(this.yScaleRange);
+      y.domain(this.incomeRange).nice();
       const axisY = d3.select(this.$refs.axisY);
       axisY
         .call(
-          d3.axisLeft(d3.scaleLinear().range(this.yScaleRange))
-          // .tickFormat(d3.format(".0%"))
+          d3.axisLeft().scale(y)
+            .tickFormat(d3.format("$.2s"))
         )
       axisY
         .selectAll('text.axisYTitle')
